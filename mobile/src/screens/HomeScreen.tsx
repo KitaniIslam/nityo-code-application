@@ -1,6 +1,7 @@
-import React from "react";
-import { ScrollView, View, ViewStyle } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { authApi } from "../api/auth.api";
 import { Button } from "../components/atoms/Button";
 import { Text } from "../components/atoms/Text";
 import { useAuth } from "../context/AuthContext";
@@ -9,11 +10,40 @@ import { useTheme } from "../theme/ThemeProvider";
 // Home screen component
 export const HomeScreen: React.FC = () => {
   const { colors, spacing } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
+  const [profileData, setProfileData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogout = async () => {
     await logout();
   };
+
+  // Fetch user profile on component mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!token) return;
+
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await authApi.getProfile(token);
+        if (response.success && response.user) {
+          setProfileData(response.user);
+        } else {
+          setError(response.error || "Failed to fetch profile");
+        }
+      } catch (err) {
+        setError("An unexpected error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchProfile();
+    }
+  }, [user, token]);
 
   const containerStyle: ViewStyle = {
     flex: 1,
@@ -62,11 +92,53 @@ export const HomeScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* App content placeholder */}
+        {/* Profile content */}
         <View style={{ alignItems: "center", marginTop: spacing.margin.xxl }}>
-          <Text variant="body" color={colors.textSecondary}>
-            Your authenticated content would go here
-          </Text>
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.primary} />
+          ) : error ? (
+            <Text variant="body" color={colors.error}>
+              {error}
+            </Text>
+          ) : profileData ? (
+            <View style={{ alignItems: "center" }}>
+              <Text
+                variant="heading3"
+                style={{ marginBottom: spacing.margin.sm }}
+              >
+                Profile Data
+              </Text>
+              <Text
+                variant="body"
+                color={colors.textSecondary}
+                style={{ marginBottom: spacing.margin.xs }}
+              >
+                ID: {profileData.id}
+              </Text>
+              <Text
+                variant="body"
+                color={colors.textSecondary}
+                style={{ marginBottom: spacing.margin.xs }}
+              >
+                Email: {profileData.email}
+              </Text>
+              <Text
+                variant="body"
+                color={colors.textSecondary}
+                style={{ marginBottom: spacing.margin.xs }}
+              >
+                Name: {profileData.fullname}
+              </Text>
+              <Text variant="bodySmall" color={colors.textTertiary}>
+                Member since:{" "}
+                {new Date(profileData.created_at).toLocaleDateString()}
+              </Text>
+            </View>
+          ) : (
+            <Text variant="body" color={colors.textSecondary}>
+              No profile data available
+            </Text>
+          )}
         </View>
 
         {/* Logout button */}

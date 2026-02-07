@@ -148,10 +148,26 @@ export class AuthController {
         });
       }
 
-      // TODO: Implement get user profile logic
+      // Get user profile from database
+      const user = this.authService.getUserById(req.userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: { message: "User not found" },
+          data: null,
+        });
+      }
+
+      // Return user profile without sensitive data
       res.json({
         success: true,
-        data: { message: "Profile endpoint - implement user retrieval" },
+        data: {
+          id: user.id,
+          email: user.email,
+          fullname: user.fullname,
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+        },
         error: null,
       });
     } catch (error) {

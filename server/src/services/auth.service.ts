@@ -221,7 +221,7 @@ export class AuthService {
     }
   }
 
-  private getUserById(id: string): User | null {
+  public getUserById(id: string): User | null {
     try {
       const stmt = db.prepare("SELECT * FROM users WHERE id = ?");
       const result = stmt.get(id) as User | null;
