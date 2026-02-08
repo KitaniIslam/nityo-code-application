@@ -19,27 +19,26 @@ export const HomeScreen: React.FC = () => {
     await logout();
   };
 
+  const fetchProfile = async () => {
+    if (!accessToken) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiRequest<any>("/profile");
+      if (response.success && response.data) {
+        setProfileData(response.data.data);
+      } else {
+        setError(response.error || "Failed to fetch profile");
+      }
+    } catch (err) {
+      setError("Failed to load profile. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
   // Fetch user profile on component mount
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!accessToken) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await apiRequest<any>("/profile");
-        if (response.success && response.data) {
-          setProfileData(response.data.data);
-        } else {
-          setError(response.error || "Failed to fetch profile");
-        }
-      } catch (err) {
-        setError("Failed to load profile. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user) {
       fetchProfile();
     }
@@ -133,6 +132,15 @@ export const HomeScreen: React.FC = () => {
 
         {/* Logout button */}
         <View style={actionsStyle}>
+          <Button
+            onPress={fetchProfile}
+            variant="outline"
+            size="lg"
+            style={{ width: "100%", marginBottom: spacing.margin.sm }}
+            testID="home-logout"
+          >
+            Get Profile
+          </Button>
           <Button
             onPress={handleLogout}
             variant="secondary"
