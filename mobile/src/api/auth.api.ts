@@ -8,7 +8,7 @@ import {
 } from "../types/auth";
 
 // API base URL - configure this based on your environment
-const API_BASE_URL = "http://localhost:3000/api";
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000/api";
 
 // Custom error class for API errors
 class ApiError extends Error {
@@ -29,7 +29,6 @@ const apiRequest = async <T>(
 ): Promise<ApiResponse<T>> => {
   try {
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log("🚀 ~ apiRequest ~ url:", url);
 
     const response = await fetch(url, {
       headers: {
@@ -40,7 +39,6 @@ const apiRequest = async <T>(
     });
 
     const data = await response.json();
-    console.log("🚀 ~ apiRequest ~ data:", JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       throw new ApiError(
@@ -70,12 +68,12 @@ export const authApi = {
   // Login user
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
     try {
-      const response = await apiRequest<AuthResponse["data"]>("/login", {
+      const response = await apiRequest<any>("/login", {
         method: "POST",
         body: JSON.stringify(credentials),
       });
 
-      if (response.success && response.data) {
+      if (response.success) {
         return {
           success: true,
           data: response.data,
@@ -84,22 +82,14 @@ export const authApi = {
 
       return {
         success: false,
-        error: "Login failed",
+        error: "Failed to login",
       };
     } catch (error) {
       if (error instanceof ApiError) {
-        // Map different error types to user-friendly messages
         if (error.status === 401) {
           return {
             success: false,
             error: "Invalid email or password",
-          };
-        }
-
-        if (error.status === 400) {
-          return {
-            success: false,
-            error: error.data?.error || "Invalid login data",
           };
         }
       }
@@ -114,12 +104,12 @@ export const authApi = {
   // Register new user
   signup: async (userData: SignupRequest): Promise<AuthResponse> => {
     try {
-      const response = await apiRequest<AuthResponse["data"]>("/signup", {
+      const response = await apiRequest<any>("/signup", {
         method: "POST",
         body: JSON.stringify(userData),
       });
 
-      if (response.success && response.data) {
+      if (response.success) {
         return {
           success: true,
           data: response.data,
@@ -128,27 +118,14 @@ export const authApi = {
 
       return {
         success: false,
-        error: "Registration failed",
+        error: "Failed to create account",
       };
     } catch (error) {
       if (error instanceof ApiError) {
-        if (error.status === 400) {
-          const errorMessage = error.data?.error || "Registration failed";
-
-          // Map specific error messages
-          if (
-            errorMessage.includes("email") &&
-            errorMessage.includes("exists")
-          ) {
-            return {
-              success: false,
-              error: "An account with this email already exists",
-            };
-          }
-
+        if (error.status === 409) {
           return {
             success: false,
-            error: errorMessage,
+            error: "An account with this email already exists",
           };
         }
       }

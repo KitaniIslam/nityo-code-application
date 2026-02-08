@@ -8,6 +8,8 @@ import { LoginInput, SignupInput } from "../schemas/auth.schema";
 const JWT_SECRET =
   process.env.JWT_SECRET || "dev-secret-key-change-in-production";
 const SALT_ROUNDS = 12;
+const ACCESS_TOKEN_EXPIRES_IN = "15m"; // 15 minutes
+const REFRESH_TOKEN_EXPIRES_IN = "7d"; // 7 days
 
 // Warn in development if using default secret
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
@@ -29,10 +31,168 @@ export interface AuthResponse {
     email: string;
     fullname: string;
   };
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
+  refreshToken: string;
 }
 
 export class AuthService {
+  // Generate access token (short-lived)
+  private generateAccessToken(user: User): string {
+    try {
+      return jwt.sign({ userId: user.id }, JWT_SECRET, {
+        expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+      });
+    } catch (error) {
+      console.error("Failed to generate access token:", error);
+      throw new Error("Failed to generate access token");
+    }
+  }
+
+  // Generate refresh token (long-lived)
+  private generateRefreshToken(): string {
+    try {
+      return jwt.sign({ type: "refresh" }, JWT_SECRET, {
+        expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+      });
+    } catch (error) {
+      console.error("Failed to generate refresh token:", error);
+      throw new Error("Failed to generate refresh token");
+    }
+  }
+
+  // Store refresh token in database (hashed)
+  private async storeRefreshToken(
+    userId: string,
+    refreshToken: string,
+  ): Promise<void> {
+    try {
+      const tokenId = uuidv4();
+      const tokenHash = await bcrypt.hash(refreshToken, SALT_ROUNDS);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+
+      const stmt = db.prepare(`
+        INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
+        VALUES (?, ?, ?, ?)
+      `);
+
+      const result = stmt.run(
+        tokenId,
+        userId,
+        tokenHash,
+        expiresAt.toISOString(),
+      );
+
+      if (!result.changes || result.changes === 0) {
+        throw new Error("Failed to store refresh token");
+      }
+    } catch (error) {
+      console.error("Failed to store refresh token:", error);
+      throw new Error("Failed to store refresh token");
+    }
+  }
+
+  // Validate refresh token
+  private async validateRefreshToken(
+    refreshToken: string,
+  ): Promise<{ userId: string; tokenId: string } | null> {
+    try {
+      // First verify JWT signature and type
+      const decoded = jwt.verify(refreshToken, JWT_SECRET) as jwt.JwtPayload & {
+        type: string;
+      };
+      if (decoded.type !== "refresh") {
+        return null;
+      }
+
+      // Find token in database
+      const stmt = db.prepare(`
+        SELECT id, user_id, token_hash, expires_at, revoked_at
+        FROM refresh_tokens
+        WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > datetime('now')
+      `);
+
+      // Hash the provided token to compare with stored hash
+      const allTokens = db
+        .prepare(
+          `
+        SELECT id, user_id, token_hash, expires_at, revoked_at
+        FROM refresh_tokens
+        WHERE revoked_at IS NULL AND expires_at > datetime('now')
+      `,
+        )
+        .all() as Array<{
+        id: string;
+        user_id: string;
+        token_hash: string;
+        expires_at: string;
+        revoked_at: string | null;
+      }>;
+
+      // Find matching token by comparing hashes
+      let matchingToken = null;
+      for (const token of allTokens) {
+        const isValid = await bcrypt.compare(refreshToken, token.token_hash);
+        if (isValid) {
+          matchingToken = token;
+          break;
+        }
+      }
+
+      if (!matchingToken) {
+        return null;
+      }
+
+      return {
+        userId: matchingToken.user_id,
+        tokenId: matchingToken.id,
+      };
+    } catch (error) {
+      console.error("Failed to validate refresh token:", error);
+      return null;
+    }
+  }
+
+  // Revoke refresh token
+  private async revokeRefreshToken(tokenId: string): Promise<void> {
+    try {
+      const stmt = db.prepare(`
+        UPDATE refresh_tokens 
+        SET revoked_at = datetime('now')
+        WHERE id = ?
+      `);
+
+      const result = stmt.run(tokenId);
+
+      if (!result.changes || result.changes === 0) {
+        throw new Error("Failed to revoke refresh token");
+      }
+    } catch (error) {
+      console.error("Failed to revoke refresh token:", error);
+      throw new Error("Failed to revoke refresh token");
+    }
+  }
+
+  // Revoke all refresh tokens for a user
+  private async revokeAllUserRefreshTokens(userId: string): Promise<void> {
+    try {
+      const stmt = db.prepare(`
+        UPDATE refresh_tokens 
+        SET revoked_at = datetime('now')
+        WHERE user_id = ? AND revoked_at IS NULL
+      `);
+
+      stmt.run(userId);
+    } catch (error) {
+      console.error("Failed to revoke all user refresh tokens:", error);
+      throw new Error("Failed to revoke all user refresh tokens");
+    }
+  }
   async signup(userData: SignupInput): Promise<AuthResponse> {
     try {
       // Check if user already exists
@@ -69,8 +229,12 @@ export class AuthService {
         throw new Error("Failed to retrieve created user");
       }
 
-      // Generate token
-      const token = this.generateToken(user);
+      // Generate both tokens
+      const accessToken = this.generateAccessToken(user);
+      const refreshToken = this.generateRefreshToken();
+
+      // Store refresh token in database
+      await this.storeRefreshToken(userId, refreshToken);
 
       return {
         user: {
@@ -78,7 +242,8 @@ export class AuthService {
           email: user.email,
           fullname: user.fullname,
         },
-        token,
+        accessToken,
+        refreshToken,
       };
     } catch (error) {
       // Log error for debugging
@@ -108,8 +273,12 @@ export class AuthService {
         throw new Error("Invalid credentials");
       }
 
-      // Generate token
-      const token = this.generateToken(user);
+      // Generate both tokens
+      const accessToken = this.generateAccessToken(user);
+      const refreshToken = this.generateRefreshToken();
+
+      // Store refresh token in database
+      await this.storeRefreshToken(user.id, refreshToken);
 
       return {
         user: {
@@ -117,7 +286,8 @@ export class AuthService {
           email: user.email,
           fullname: user.fullname,
         },
-        token,
+        accessToken,
+        refreshToken,
       };
     } catch (error) {
       console.error("Login error:", error);
@@ -232,12 +402,64 @@ export class AuthService {
     }
   }
 
-  private generateToken(user: User): string {
+  // Refresh access token using refresh token
+  async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
     try {
-      return jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "24h" });
+      // Validate refresh token
+      const tokenData = await this.validateRefreshToken(refreshToken);
+      if (!tokenData) {
+        throw new Error("Invalid or expired refresh token");
+      }
+
+      // Get user
+      const user = this.getUserById(tokenData.userId);
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Generate new tokens
+      const newAccessToken = this.generateAccessToken(user);
+      const newRefreshToken = this.generateRefreshToken();
+
+      // Revoke old refresh token
+      await this.revokeRefreshToken(tokenData.tokenId);
+
+      // Store new refresh token
+      await this.storeRefreshToken(user.id, newRefreshToken);
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      };
     } catch (error) {
-      console.error("Token generation error:", error);
-      throw new Error("Failed to generate authentication token");
+      console.error("Token refresh error:", error);
+      if (error instanceof Error) {
+        throw new Error(error.message);
+      }
+      throw new Error("Token refresh failed due to an unexpected error");
+    }
+  }
+
+  // Logout user (revoke refresh token)
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      const tokenData = await this.validateRefreshToken(refreshToken);
+      if (tokenData) {
+        await this.revokeRefreshToken(tokenData.tokenId);
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+      throw new Error("Logout failed");
+    }
+  }
+
+  // Logout from all devices (revoke all refresh tokens)
+  async logoutAllDevices(userId: string): Promise<void> {
+    try {
+      await this.revokeAllUserRefreshTokens(userId);
+    } catch (error) {
+      console.error("Logout all devices error:", error);
+      throw new Error("Logout from all devices failed");
     }
   }
 }

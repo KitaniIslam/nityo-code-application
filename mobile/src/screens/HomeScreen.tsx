@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { authApi } from "../api/auth.api";
+import { apiRequest } from "../utils/apiClient";
 import { Button } from "../components/atoms/Button";
 import { Text } from "../components/atoms/Text";
 import { useAuth } from "../context/AuthContext";
@@ -10,7 +10,7 @@ import { useTheme } from "../theme/ThemeProvider";
 // Home screen component
 export const HomeScreen: React.FC = () => {
   const { colors, spacing } = useTheme();
-  const { user, token, logout } = useAuth();
+  const { user, accessToken, logout } = useAuth();
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,19 +22,19 @@ export const HomeScreen: React.FC = () => {
   // Fetch user profile on component mount
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!token) return;
+      if (!accessToken) return;
 
       try {
         setLoading(true);
         setError(null);
-        const response = await authApi.getProfile(token);
-        if (response.success && response.user) {
-          setProfileData(response.user);
+        const response = await apiRequest<any>("/profile");
+        if (response.success && response.data) {
+          setProfileData(response.data.data);
         } else {
           setError(response.error || "Failed to fetch profile");
         }
       } catch (err) {
-        setError("An unexpected error occurred");
+        setError("Failed to load profile. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -43,7 +43,7 @@ export const HomeScreen: React.FC = () => {
     if (user) {
       fetchProfile();
     }
-  }, [user, token]);
+  }, [user, accessToken]);
 
   const containerStyle: ViewStyle = {
     flex: 1,
@@ -76,21 +76,11 @@ export const HomeScreen: React.FC = () => {
         {/* Welcome message */}
         <Text
           variant="heading1"
-          style={{ textAlign: "center", marginBottom: spacing.margin.lg }}
+          style={{ marginBottom: spacing.margin.lg }}
           testID="home-welcome"
         >
           Welcome Back!
         </Text>
-
-        {/* User profile card */}
-        <View style={profileStyle} testID="home-profile">
-          <Text variant="heading3" style={{ marginBottom: spacing.margin.sm }}>
-            {user?.fullname}
-          </Text>
-          <Text variant="body" color={colors.textSecondary}>
-            {user?.email}
-          </Text>
-        </View>
 
         {/* Profile content */}
         <View style={{ alignItems: "center", marginTop: spacing.margin.xxl }}>
@@ -101,12 +91,12 @@ export const HomeScreen: React.FC = () => {
               {error}
             </Text>
           ) : profileData ? (
-            <View style={{ alignItems: "center" }}>
+            <View>
               <Text
                 variant="heading3"
                 style={{ marginBottom: spacing.margin.sm }}
               >
-                Profile Data
+                Profile
               </Text>
               <Text
                 variant="body"
@@ -127,7 +117,7 @@ export const HomeScreen: React.FC = () => {
                 color={colors.textSecondary}
                 style={{ marginBottom: spacing.margin.xs }}
               >
-                Name: {profileData.fullname}
+                Full Name: {profileData.fullname}
               </Text>
               <Text variant="bodySmall" color={colors.textTertiary}>
                 Member since:{" "}
@@ -147,7 +137,7 @@ export const HomeScreen: React.FC = () => {
             onPress={handleLogout}
             variant="secondary"
             size="lg"
-            style={{ width: "100%", maxWidth: 300 }}
+            style={{ width: "100%" }}
             testID="home-logout"
           >
             Sign Out

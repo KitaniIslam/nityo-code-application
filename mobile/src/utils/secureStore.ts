@@ -1,8 +1,9 @@
 import * as SecureStore from "expo-secure-store";
 
-// Storage keys for authentication data
-const STORAGE_KEYS = {
+// Storage keys
+export const STORAGE_KEYS = {
   ACCESS_TOKEN: "access_token",
+  REFRESH_TOKEN: "refresh_token",
   USER_ID: "user_id",
   USER_EMAIL: "user_email",
   USER_NAME: "user_name",
@@ -18,14 +19,19 @@ export interface StoredUser {
 // Authentication session interface
 export interface AuthSession {
   user: StoredUser;
-  token: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 // Save authentication session securely
 export const saveSession = async (session: AuthSession): Promise<boolean> => {
   try {
     await Promise.all([
-      SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, session.token),
+      SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, session.accessToken),
+      SecureStore.setItemAsync(
+        STORAGE_KEYS.REFRESH_TOKEN,
+        session.refreshToken,
+      ),
       SecureStore.setItemAsync(STORAGE_KEYS.USER_ID, session.user.id),
       SecureStore.setItemAsync(STORAGE_KEYS.USER_EMAIL, session.user.email),
       SecureStore.setItemAsync(STORAGE_KEYS.USER_NAME, session.user.fullname),
@@ -40,15 +46,17 @@ export const saveSession = async (session: AuthSession): Promise<boolean> => {
 // Load authentication session from secure storage
 export const loadSession = async (): Promise<AuthSession | null> => {
   try {
-    const [token, userId, userEmail, userName] = await Promise.all([
-      SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
-      SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
-      SecureStore.getItemAsync(STORAGE_KEYS.USER_EMAIL),
-      SecureStore.getItemAsync(STORAGE_KEYS.USER_NAME),
-    ]);
+    const [accessToken, refreshToken, userId, userEmail, userName] =
+      await Promise.all([
+        SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
+        SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
+        SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
+        SecureStore.getItemAsync(STORAGE_KEYS.USER_EMAIL),
+        SecureStore.getItemAsync(STORAGE_KEYS.USER_NAME),
+      ]);
 
     // Check if all required data exists
-    if (!token || !userId || !userEmail || !userName) {
+    if (!accessToken || !refreshToken || !userId || !userEmail || !userName) {
       return null;
     }
 
@@ -58,7 +66,7 @@ export const loadSession = async (): Promise<AuthSession | null> => {
       fullname: userName,
     };
 
-    return { user, token };
+    return { user, accessToken, refreshToken };
   } catch (error) {
     console.error("Failed to load session:", error);
     return null;
@@ -70,6 +78,7 @@ export const clearSession = async (): Promise<boolean> => {
   try {
     await Promise.all([
       SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
       SecureStore.deleteItemAsync(STORAGE_KEYS.USER_ID),
       SecureStore.deleteItemAsync(STORAGE_KEYS.USER_EMAIL),
       SecureStore.deleteItemAsync(STORAGE_KEYS.USER_NAME),
@@ -87,6 +96,16 @@ export const getAccessToken = async (): Promise<string | null> => {
     return await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
   } catch (error) {
     console.error("Failed to get access token:", error);
+    return null;
+  }
+};
+
+// Get refresh token only
+export const getRefreshToken = async (): Promise<string | null> => {
+  try {
+    return await SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
+  } catch (error) {
+    console.error("Failed to get refresh token:", error);
     return null;
   }
 };

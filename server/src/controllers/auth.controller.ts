@@ -5,6 +5,7 @@ import {
   resetPasswordSchema,
   signupSchema,
   updatePasswordSchema,
+  refreshTokenSchema,
 } from "../schemas/auth.schema";
 import { AuthService } from "../services/auth.service";
 
@@ -45,7 +46,6 @@ export class AuthController {
   async login(req: Request, res: Response) {
     try {
       const validationResult = loginSchema.safeParse(req.body);
-      console.log("🚀 ~ AuthController ~ login ~ req.body:", req.body);
       if (!validationResult.success) {
         return res.status(400).json({
           data: null,
@@ -173,6 +173,93 @@ export class AuthController {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to get profile";
+      res.status(500).json({ error: message, data: null, success: false });
+    }
+  }
+
+  // Refresh access token
+  async refresh(req: Request, res: Response) {
+    try {
+      const validationResult = refreshTokenSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          data: null,
+          success: false,
+          error: {
+            message: "Validation failed",
+            details: validationResult.error.issues,
+          },
+        });
+      }
+
+      const result = await this.authService.refreshToken(
+        validationResult.data.refreshToken,
+      );
+
+      res.json({
+        success: true,
+        data: result,
+        error: null,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to refresh token";
+      res.status(401).json({ error: message, data: null, success: false });
+    }
+  }
+
+  // Logout user
+  async logout(req: Request, res: Response) {
+    try {
+      const validationResult = refreshTokenSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          data: null,
+          success: false,
+          error: {
+            message: "Validation failed",
+            details: validationResult.error.issues,
+          },
+        });
+      }
+
+      await this.authService.logout(validationResult.data.refreshToken);
+
+      res.json({
+        success: true,
+        data: { message: "Logged out successfully" },
+        error: null,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to logout";
+      res.status(500).json({ error: message, data: null, success: false });
+    }
+  }
+
+  // Logout from all devices
+  async logoutAll(req: AuthenticatedRequest, res: Response) {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({
+          success: false,
+          error: { message: "User not authenticated" },
+          data: null,
+        });
+      }
+
+      await this.authService.logoutAllDevices(req.userId);
+
+      res.json({
+        success: true,
+        data: { message: "Logged out from all devices successfully" },
+        error: null,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to logout from all devices";
       res.status(500).json({ error: message, data: null, success: false });
     }
   }

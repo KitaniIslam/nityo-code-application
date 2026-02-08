@@ -93,7 +93,7 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
           </Text>
 
           <Button
-            onPress={onBack}
+            onPress={onBack as any}
             variant="primary"
             size="lg"
             style={{ marginTop: spacing.margin.lg }}

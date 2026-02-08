@@ -1,24 +1,21 @@
 import React, {
   createContext,
+  ReactNode,
   useContext,
   useEffect,
+  useRef,
   useState,
-  ReactNode,
 } from "react";
 import { authApi } from "../api/auth.api";
-import {
-  saveSession,
-  loadSession,
-  clearSession,
-  AuthSession,
-} from "../utils/secureStore";
 import { User } from "../types/auth";
+import { clearSession, loadSession, saveSession } from "../utils/secureStore";
 
 // Auth context type definitions
 export interface AuthContextType {
   // State
   user: User | null;
-  token: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 
@@ -40,6 +37,7 @@ export interface AuthContextType {
     currentPassword: string,
     newPassword: string,
   ) => Promise<{ success: boolean; message?: string; error?: string }>;
+  refreshTokens: () => Promise<{ success: boolean; error?: string }>;
   restoreSession: () => Promise<void>;
 }
 
@@ -55,11 +53,15 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // State management
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Computed state
-  const isAuthenticated = !!user && !!token;
+  const isAuthenticated = !!user && !!accessToken && !!refreshToken;
+
+  // Mutex to prevent concurrent refresh attempts
+  const refreshMutex = useRef(false);
 
   // Restore session on app startup
   const restoreSession = async (): Promise<void> => {
@@ -69,7 +71,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (session) {
         setUser(session.user);
-        setToken(session.token);
+        setAccessToken(session.accessToken);
+        setRefreshToken(session.refreshToken);
       }
     } catch (error) {
       console.error("Failed to restore session:", error);
@@ -77,6 +80,65 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await clearSession();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Refresh tokens function
+  const refreshTokens = async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    // Prevent concurrent refresh attempts
+    if (refreshMutex.current) {
+      return { success: false, error: "Refresh already in progress" };
+    }
+
+    if (!refreshToken) {
+      return { success: false, error: "No refresh token available" };
+    }
+
+    try {
+      refreshMutex.current = true;
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/refresh`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refreshToken }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
+          data.data;
+
+        // Update state
+        setAccessToken(newAccessToken);
+        setRefreshToken(newRefreshToken);
+
+        // Update secure storage
+        if (user) {
+          await saveSession({
+            user,
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+          });
+        }
+
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || "Token refresh failed" };
+      }
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      return { success: false, error: "Token refresh failed" };
+    } finally {
+      refreshMutex.current = false;
     }
   };
 
@@ -89,18 +151,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authApi.login({ email, password });
 
       if (response.success && response.data) {
-        const { user: userData, token: userToken } = response.data;
+        const {
+          user: userData,
+          accessToken: userAccessToken,
+          refreshToken: userRefreshToken,
+        } = response.data;
 
         // Save session to secure storage
         const sessionSaved = await saveSession({
           user: userData,
-          token: userToken,
+          accessToken: userAccessToken,
+          refreshToken: userRefreshToken,
         });
 
         if (sessionSaved) {
           // Update state
           setUser(userData);
-          setToken(userToken);
+          setAccessToken(userAccessToken);
+          setRefreshToken(userRefreshToken);
 
           return { success: true };
         } else {
@@ -129,18 +197,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (response.success && response.data) {
-        const { user: userData, token: userToken } = response.data;
+        const {
+          user: userData,
+          accessToken: userAccessToken,
+          refreshToken: userRefreshToken,
+        } = response.data;
 
         // Save session to secure storage
         const sessionSaved = await saveSession({
           user: userData,
-          token: userToken,
+          accessToken: userAccessToken,
+          refreshToken: userRefreshToken,
         });
 
         if (sessionSaved) {
           // Update state
           setUser(userData);
-          setToken(userToken);
+          setAccessToken(userAccessToken);
+          setRefreshToken(userRefreshToken);
 
           return { success: true };
         } else {
@@ -161,17 +235,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Logout function
   const logout = async (): Promise<void> => {
     try {
+      // Call logout endpoint if we have a refresh token
+      if (refreshToken) {
+        try {
+          await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/logout`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ refreshToken }),
+          });
+        } catch (error) {
+          console.error("Logout API error:", error);
+          // Continue with local logout even if API call fails
+        }
+      }
+
       // Clear secure storage
       await clearSession();
 
       // Clear state
       setUser(null);
-      setToken(null);
+      setAccessToken(null);
+      setRefreshToken(null);
     } catch (error) {
       console.error("Logout error:", error);
       // Even if storage clear fails, clear state
       setUser(null);
-      setToken(null);
+      setAccessToken(null);
+      setRefreshToken(null);
     }
   };
 
@@ -195,12 +287,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     currentPassword: string,
     newPassword: string,
   ): Promise<{ success: boolean; message?: string; error?: string }> => {
-    if (!token) {
+    if (!accessToken) {
       return { success: false, error: "Not authenticated" };
     }
 
     try {
-      return await authApi.updatePassword(token, {
+      return await authApi.updatePassword(accessToken, {
         currentPassword,
         newPassword,
       });
@@ -208,7 +300,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error("Update password error:", error);
       return {
         success: false,
-        error: "Failed to update password. Please try again.",
+        error: "Password update failed. Please try again.",
       };
     }
   };
@@ -222,7 +314,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     // State
     user,
-    token,
+    accessToken,
+    refreshToken,
     isAuthenticated,
     isLoading,
 
@@ -232,6 +325,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     resetPassword,
     updatePassword,
+    refreshTokens,
     restoreSession,
   };
 

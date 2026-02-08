@@ -10,7 +10,17 @@ export interface AuthResponse {
   success: boolean;
   data?: {
     user: User;
-    token: string;
+    accessToken: string;
+    refreshToken: string;
+  };
+  error?: string;
+}
+
+export interface RefreshTokenResponse {
+  success: boolean;
+  data?: {
+    accessToken: string;
+    refreshToken: string;
   };
   error?: string;
 }
