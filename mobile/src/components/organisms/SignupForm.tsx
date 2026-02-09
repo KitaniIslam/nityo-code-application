@@ -115,6 +115,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onLogin, testID }) => {
               autoComplete="name"
               textContentType="name"
               testID={`${testID}-fullname`}
+              placeholder="Full Name"
             />
           )}
         </Field>
@@ -142,6 +143,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onLogin, testID }) => {
               autoComplete="email"
               textContentType="emailAddress"
               testID={`${testID}-email`}
+              placeholder="email@example.com"
             />
           )}
         </Field>
@@ -165,6 +167,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onLogin, testID }) => {
               onBlur={() => field.handleBlur()}
               error={field.state.meta.errors[0]?.toString()}
               testID={`${testID}-password`}
+              placeholder="********"
             />
           )}
         </Field>

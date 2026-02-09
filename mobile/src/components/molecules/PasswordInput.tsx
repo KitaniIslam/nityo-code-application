@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { TouchableOpacity, View, ViewStyle } from "react-native";
+import { Pressable, TouchableOpacity, View, ViewStyle } from "react-native";
+import { FontAwesome } from "@expo/vector-icons";
 import { Text } from "../atoms/Text";
 import { Input, InputProps } from "../atoms/Input";
 import { ErrorMessage } from "./ErrorMessage";
@@ -56,35 +57,22 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
         </Text>
       )}
 
-      <View style={{ position: "relative" }}>
-        <Input
-          {...inputProps}
-          secureTextEntry={isSecure}
-          error={!!error}
-          testID={`${testID}-input`}
-          style={{ paddingRight: 50 }} // Space for the toggle button
-        />
-
-        <TouchableOpacity
-          onPress={toggleSecure}
-          style={{
-            position: "absolute",
-            right: spacing.padding.sm,
-            top: "50%",
-            marginTop: -12, // Center the button vertically
-            padding: spacing.padding.xs,
-          }}
-          testID={`${testID}-toggle`}
-        >
-          <Text
-            variant="bodySmall"
-            color={colors.primary}
-            style={{ fontWeight: "600" }}
-          >
-            {isSecure ? "Show" : "Hide"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <Input
+        {...inputProps}
+        secureTextEntry={isSecure}
+        error={!!error}
+        testID={`${testID}-input`}
+        inputStyle={{ flex: 1 }} // Ensure input takes available space
+        rightIcon={
+          <Pressable onPress={toggleSecure}>
+            <FontAwesome
+              name={isSecure ? "eye" : "eye-slash"}
+              size={20}
+              color={colors.primary}
+            />
+          </Pressable>
+        }
+      />
 
       <ErrorMessage message={error} testID={`${testID}-error`} />
     </View>
