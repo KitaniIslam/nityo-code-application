@@ -8,6 +8,14 @@
   <img src="./screenshots/HOME.PNG" alt="Profile Screen" width="200"/>
 </div>
 
+### Screen Recording
+
+<div align="center">
+  <video src="./screenshots/ScreenRecording.MP4" width="300" controls>
+    Your browser does not support the video tag.
+  </video>
+</div>
+
 ## Tech Stack Choices
 
 As the requirment very simple, I choose the following tech stack:
