@@ -10,6 +10,8 @@
 
 ### Screen Recording
 
+You may download the video file to see the app in action [here](./screenshots/ScreenRecording.MP4).
+
 <div align="center">
   <video src="./screenshots/ScreenRecording.MP4" width="300" controls>
     Your browser does not support the video tag.
