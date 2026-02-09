@@ -1,5 +1,13 @@
 # React Native Authentication App
 
+## Screenshots
+
+<div align="center">
+  <img src="./screenshots/SIGNIN.PNG" alt="Login Screen" width="200"/>
+  <img src="./screenshots/SIGNUP.PNG" alt="Register Screen" width="200"/>
+  <img src="./screenshots/HOME.PNG" alt="Profile Screen" width="200"/>
+</div>
+
 ## Tech Stack Choices
 
 As the requirment very simple, I choose the following tech stack:
