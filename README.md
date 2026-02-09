@@ -18,7 +18,7 @@ As the requirment very simple, I choose the following tech stack:
 - Custom UI components (no external UI library)
 - light/dark theme following the system default
 
-## Feature imporovment
+## Imporovment
 
 I choosed to not use any `UI Library` to keep the app simple and focused on the core functionality.
 also demonstrite the `atomic design pattern`. and the eas of theming.
