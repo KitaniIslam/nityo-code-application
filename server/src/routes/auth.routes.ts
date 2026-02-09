@@ -5,28 +5,42 @@ import { authenticateToken } from "../middleware/auth.middleware";
 const router = Router();
 const authController = new AuthController();
 
-router.post("/signup", authController.signup.bind(authController));
-router.post("/login", authController.login.bind(authController));
-router.post("/refresh", authController.refresh.bind(authController));
-router.post("/logout", authController.logout.bind(authController));
+// Helper to wrap async handlers
+const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+router.post(
+  "/signup",
+  asyncHandler(authController.signup.bind(authController)),
+);
+router.post("/login", asyncHandler(authController.login.bind(authController)));
+router.post(
+  "/refresh",
+  asyncHandler(authController.refresh.bind(authController)),
+);
+router.post(
+  "/logout",
+  asyncHandler(authController.logout.bind(authController)),
+);
 router.post(
   "/reset-password",
-  authController.resetPassword.bind(authController),
+  asyncHandler(authController.resetPassword.bind(authController)),
 );
 router.put(
   "/update-password",
   authenticateToken,
-  authController.updatePassword.bind(authController),
+  asyncHandler(authController.updatePassword.bind(authController)),
 );
 router.get(
   "/profile",
   authenticateToken,
-  authController.getProfile.bind(authController),
+  asyncHandler(authController.getProfile.bind(authController)),
 );
 router.post(
   "/logout-all",
   authenticateToken,
-  authController.logoutAll.bind(authController),
+  asyncHandler(authController.logoutAll.bind(authController)),
 );
 
 export { router as authRoutes };

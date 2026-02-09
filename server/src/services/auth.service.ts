@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { db } from "../db/sqlite";
+import { getDatabase } from "../db/sqlite";
 import { LoginInput, SignupInput } from "../schemas/auth.schema";
 
 // Production-ready environment validation
@@ -76,7 +76,7 @@ export class AuthService {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
 
-      const stmt = db.prepare(`
+      const stmt = getDatabase().prepare(`
         INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
         VALUES (?, ?, ?, ?)
       `);
@@ -111,14 +111,14 @@ export class AuthService {
       }
 
       // Find token in database
-      const stmt = db.prepare(`
+      const stmt = getDatabase().prepare(`
         SELECT id, user_id, token_hash, expires_at, revoked_at
         FROM refresh_tokens
         WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > datetime('now')
       `);
 
       // Hash the provided token to compare with stored hash
-      const allTokens = db
+      const allTokens = getDatabase()
         .prepare(
           `
         SELECT id, user_id, token_hash, expires_at, revoked_at
@@ -161,7 +161,7 @@ export class AuthService {
   // Revoke refresh token
   private async revokeRefreshToken(tokenId: string): Promise<void> {
     try {
-      const stmt = db.prepare(`
+      const stmt = getDatabase().prepare(`
         UPDATE refresh_tokens 
         SET revoked_at = datetime('now')
         WHERE id = ?
@@ -181,7 +181,7 @@ export class AuthService {
   // Revoke all refresh tokens for a user
   private async revokeAllUserRefreshTokens(userId: string): Promise<void> {
     try {
-      const stmt = db.prepare(`
+      const stmt = getDatabase().prepare(`
         UPDATE refresh_tokens 
         SET revoked_at = datetime('now')
         WHERE user_id = ? AND revoked_at IS NULL
@@ -206,7 +206,7 @@ export class AuthService {
       const userId = uuidv4();
 
       // Insert new user
-      const stmt = db.prepare(`
+      const stmt = getDatabase().prepare(`
         INSERT INTO users (id, email, fullname, password_hash)
         VALUES (?, ?, ?, ?)
       `);
@@ -344,7 +344,7 @@ export class AuthService {
       const newPasswordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
 
       // Update password in database
-      const stmt = db.prepare(`
+      const stmt = getDatabase().prepare(`
         UPDATE users 
         SET password_hash = ?, updated_at = CURRENT_TIMESTAMP 
         WHERE id = ?
@@ -382,7 +382,7 @@ export class AuthService {
 
   private getUserByEmail(email: string): User | null {
     try {
-      const stmt = db.prepare("SELECT * FROM users WHERE email = ?");
+      const stmt = getDatabase().prepare("SELECT * FROM users WHERE email = ?");
       const result = stmt.get(email) as User | null;
       return result;
     } catch (error) {
@@ -393,7 +393,7 @@ export class AuthService {
 
   public getUserById(id: string): User | null {
     try {
-      const stmt = db.prepare("SELECT * FROM users WHERE id = ?");
+      const stmt = getDatabase().prepare("SELECT * FROM users WHERE id = ?");
       const result = stmt.get(id) as User | null;
       return result;
     } catch (error) {

@@ -18,7 +18,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Error handling
+// Error handling middleware (must be last)
 app.use(
   (
     err: any,
@@ -26,14 +26,28 @@ app.use(
     res: express.Response,
     next: express.NextFunction,
   ) => {
-    console.error(err.stack);
-    res.status(500).json({ error: "Something went wrong!" });
+    console.error("Error:", err);
+    res.status(err.status || 500).json({
+      success: false,
+      error: err.message || "Something went wrong!",
+      data: null,
+    });
   },
 );
+
+// Handle 404
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: "Route not found",
+    data: null,
+  });
+});
 
 // Start server
 const startServer = async () => {
   try {
+    // Initialize database first
     initializeDatabase();
 
     app.listen(PORT, () => {
