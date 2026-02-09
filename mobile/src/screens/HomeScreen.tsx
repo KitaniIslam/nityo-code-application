@@ -72,15 +72,6 @@ export const HomeScreen: React.FC = () => {
   return (
     <SafeAreaView style={containerStyle}>
       <ScrollView style={contentStyle} showsVerticalScrollIndicator={false}>
-        {/* Welcome message */}
-        <Text
-          variant="heading1"
-          style={{ marginBottom: spacing.margin.lg }}
-          testID="home-welcome"
-        >
-          Welcome Back!
-        </Text>
-
         {/* Profile content */}
         <View style={{ alignItems: "center", marginTop: spacing.margin.xxl }}>
           {loading ? (
@@ -139,11 +130,11 @@ export const HomeScreen: React.FC = () => {
             style={{ width: "100%", marginBottom: spacing.margin.sm }}
             testID="home-logout"
           >
-            Get Profile
+            Fetch Profile Manually
           </Button>
           <Button
             onPress={handleLogout}
-            variant="secondary"
+            variant="primary"
             size="lg"
             style={{ width: "100%" }}
             testID="home-logout"

@@ -1,5 +1,6 @@
 import { createStackNavigator } from "@react-navigation/stack";
 import React from "react";
+import { View, Text, ActivityIndicator } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { HomeScreen } from "../screens/HomeScreen";
 import { LoginScreen } from "../screens/LoginScreen";
@@ -22,8 +23,12 @@ export const RootNavigator: React.FC = () => {
 
   // Show loading screen while restoring session
   if (isLoading) {
-    // TODO: Add a proper loading screen component
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 16 }}>Loading...</Text>
+      </View>
+    );
   }
 
   return (

@@ -7,18 +7,12 @@ import React, {
   useState,
 } from "react";
 import { authApi } from "../api/auth.api";
-import { User } from "../types/auth";
+import { AuthState, User } from "../types";
+import { API_URL } from "../utils/consts";
 import { clearSession, loadSession, saveSession } from "../utils/secureStore";
 
 // Auth context type definitions
-export interface AuthContextType {
-  // State
-  user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-
+export interface AuthContextType extends AuthState {
   // Actions
   login: (
     email: string,
@@ -73,6 +67,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(session.user);
         setAccessToken(session.accessToken);
         setRefreshToken(session.refreshToken);
+      } else {
+        console.log("❌ No session found in storage");
       }
     } catch (error) {
       console.error("Failed to restore session:", error);
@@ -100,16 +96,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       refreshMutex.current = true;
 
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/refresh`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ refreshToken }),
+      const response = await fetch(`${API_URL}/api/refresh`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ refreshToken }),
+      });
 
       const data = await response.json();
 
@@ -157,16 +150,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           refreshToken: userRefreshToken,
         } = response.data;
 
+        // Normalize user data to ensure all fields are strings
+        const normalizedUserData = {
+          id: String(userData.id || ""),
+          email: String(userData.email || ""),
+          fullname: String(userData.fullname || ""),
+          created_at: String(userData.created_at || ""),
+          updated_at: String(userData.updated_at || ""),
+        };
+
         // Save session to secure storage
         const sessionSaved = await saveSession({
-          user: userData,
+          user: normalizedUserData,
           accessToken: userAccessToken,
           refreshToken: userRefreshToken,
         });
 
         if (sessionSaved) {
-          // Update state
-          setUser(userData);
+          // Update state with normalized data
+          setUser(normalizedUserData);
           setAccessToken(userAccessToken);
           setRefreshToken(userRefreshToken);
 
@@ -175,7 +177,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return { success: false, error: "Failed to save session" };
         }
       } else {
-        return { success: false, error: response.error };
+        return {
+          success: false,
+          error:
+            typeof response.error === "string"
+              ? response.error
+              : response.error?.message || "Unknown error",
+        };
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -203,16 +211,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           refreshToken: userRefreshToken,
         } = response.data;
 
+        // Normalize user data to ensure all fields are strings
+        const normalizedUserData = {
+          id: String(userData.id || ""),
+          email: String(userData.email || ""),
+          fullname: String(userData.fullname || ""),
+          created_at: String(userData.created_at || ""),
+          updated_at: String(userData.updated_at || ""),
+        };
+
         // Save session to secure storage
         const sessionSaved = await saveSession({
-          user: userData,
+          user: normalizedUserData,
           accessToken: userAccessToken,
           refreshToken: userRefreshToken,
         });
 
         if (sessionSaved) {
-          // Update state
-          setUser(userData);
+          // Update state with normalized data
+          setUser(normalizedUserData);
           setAccessToken(userAccessToken);
           setRefreshToken(userRefreshToken);
 
@@ -221,7 +238,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return { success: false, error: "Failed to save session" };
         }
       } else {
-        return { success: false, error: response.error };
+        return {
+          success: false,
+          error:
+            typeof response.error === "string"
+              ? response.error
+              : response.error?.message || "Unknown error",
+        };
       }
     } catch (err) {
       console.error("Signup error:", err);
@@ -238,7 +261,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Call logout endpoint if we have a refresh token
       if (refreshToken) {
         try {
-          await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/logout`, {
+          await fetch(`${API_URL}/api/logout`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

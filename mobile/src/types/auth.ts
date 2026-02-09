@@ -1,50 +1,17 @@
-// Authentication// User interface for authentication
-
-export interface User {
-  id: string;
-  email: string;
-  fullname: string;
-}
-
-export interface AuthResponse {
-  success: boolean;
-  data?: {
-    user: User;
-    accessToken: string;
-    refreshToken: string;
-  };
-  error?: string;
-}
-
-export interface RefreshTokenResponse {
-  success: boolean;
-  data?: {
-    accessToken: string;
-    refreshToken: string;
-  };
-  error?: string;
-}
-
-// API request types
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface SignupRequest {
-  fullname: string;
-  email: string;
-  password: string;
-}
-
-export interface ResetPasswordRequest {
-  email: string;
-}
-
-export interface UpdatePasswordRequest {
-  currentPassword: string;
-  newPassword: string;
-}
+// Authentication types - re-export from central types for backward compatibility
+export type {
+  User,
+  AuthTokens,
+  AuthState,
+  AuthResponse,
+  RefreshTokenResponse,
+  ProfileResponse,
+  LoginRequest,
+  SignupRequest,
+  ResetPasswordRequest,
+  UpdatePasswordRequest,
+  RefreshTokenRequest,
+} from "./index";
 
 export interface ApiError {
   success: false;

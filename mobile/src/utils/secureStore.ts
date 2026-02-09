@@ -7,6 +7,8 @@ export const STORAGE_KEYS = {
   USER_ID: "user_id",
   USER_EMAIL: "user_email",
   USER_NAME: "user_name",
+  USER_CREATED_AT: "user_created_at",
+  USER_UPDATED_AT: "user_updated_at",
 } as const;
 
 // User data interface for storage
@@ -14,6 +16,8 @@ export interface StoredUser {
   id: string;
   email: string;
   fullname: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Authentication session interface
@@ -35,6 +39,14 @@ export const saveSession = async (session: AuthSession): Promise<boolean> => {
       SecureStore.setItemAsync(STORAGE_KEYS.USER_ID, session.user.id),
       SecureStore.setItemAsync(STORAGE_KEYS.USER_EMAIL, session.user.email),
       SecureStore.setItemAsync(STORAGE_KEYS.USER_NAME, session.user.fullname),
+      SecureStore.setItemAsync(
+        STORAGE_KEYS.USER_CREATED_AT,
+        String(session.user.created_at || ""),
+      ),
+      SecureStore.setItemAsync(
+        STORAGE_KEYS.USER_UPDATED_AT,
+        String(session.user.updated_at || ""),
+      ),
     ]);
     return true;
   } catch (error) {
@@ -46,24 +58,39 @@ export const saveSession = async (session: AuthSession): Promise<boolean> => {
 // Load authentication session from secure storage
 export const loadSession = async (): Promise<AuthSession | null> => {
   try {
-    const [accessToken, refreshToken, userId, userEmail, userName] =
-      await Promise.all([
-        SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
-        SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
-        SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
-        SecureStore.getItemAsync(STORAGE_KEYS.USER_EMAIL),
-        SecureStore.getItemAsync(STORAGE_KEYS.USER_NAME),
-      ]);
+    const [
+      accessToken,
+      refreshToken,
+      userId,
+      userEmail,
+      userName,
+      userCreatedAt,
+      userUpdatedAt,
+    ] = await Promise.all([
+      SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
+      SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
+      SecureStore.getItemAsync(STORAGE_KEYS.USER_ID),
+      SecureStore.getItemAsync(STORAGE_KEYS.USER_EMAIL),
+      SecureStore.getItemAsync(STORAGE_KEYS.USER_NAME),
+      SecureStore.getItemAsync(STORAGE_KEYS.USER_CREATED_AT),
+      SecureStore.getItemAsync(STORAGE_KEYS.USER_UPDATED_AT),
+    ]);
 
     // Check if all required data exists
     if (!accessToken || !refreshToken || !userId || !userEmail || !userName) {
       return null;
     }
 
+    // Allow empty strings for timestamps, but ensure they exist
+    const normalizedCreatedAt = userCreatedAt || "";
+    const normalizedUpdatedAt = userUpdatedAt || "";
+
     const user: StoredUser = {
       id: userId,
       email: userEmail,
       fullname: userName,
+      created_at: normalizedCreatedAt,
+      updated_at: normalizedUpdatedAt,
     };
 
     return { user, accessToken, refreshToken };
@@ -82,6 +109,8 @@ export const clearSession = async (): Promise<boolean> => {
       SecureStore.deleteItemAsync(STORAGE_KEYS.USER_ID),
       SecureStore.deleteItemAsync(STORAGE_KEYS.USER_EMAIL),
       SecureStore.deleteItemAsync(STORAGE_KEYS.USER_NAME),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.USER_CREATED_AT),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.USER_UPDATED_AT),
     ]);
     return true;
   } catch (error) {

@@ -1,15 +1,15 @@
 import React from "react";
+import { useAuth } from "../context/AuthContext";
+import { API_URL } from "./consts";
 import {
   getAccessToken,
   getRefreshToken,
-  saveSession,
   loadSession,
+  saveSession,
 } from "./secureStore";
-import { useAuth } from "../context/AuthContext";
 
 // API client configuration
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api";
+const API_BASE_URL = `${API_URL}/api`;
 
 // Mutex to prevent concurrent refresh attempts
 let isRefreshing = false;
@@ -126,10 +126,11 @@ export const apiClient = async (
 
   // Get current access token
   let accessToken = await getAccessToken();
+  console.log("🚀 ~ apiClient ~ url:", { url, accessToken });
 
   // Check if token needs refresh before making request
   if (accessToken && jwtUtils.willExpireSoon(accessToken, 30)) {
-    console.log("Access token expiring soon, refreshing...");
+    console.log(" Access token expiring soon, refreshing...");
     const refreshSuccess = await refreshAccessToken();
     if (refreshSuccess) {
       accessToken = await getAccessToken();
@@ -138,24 +139,37 @@ export const apiClient = async (
 
   // Prepare headers
   const headers = new Headers(options.headers || {});
+  console.log("🚀 ~ apiClient ~ headers:", headers);
 
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
+    console.log(
+      " API Client - Adding Authorization header:",
+      `Bearer ${accessToken.substring(0, 20)}...`,
+    );
+  } else {
+    console.log(" API Client - No access token available");
   }
 
   if (!headers.has("Content-Type") && options.body) {
     headers.set("Content-Type", "application/json");
   }
 
+  console.log(" API Client - Making request to:", url);
+  console.log(" API Client - Headers:", Object.fromEntries(headers.entries()));
+
   // Make initial request
   let response = await fetch(url, {
     ...options,
     headers,
   });
+  console.log("🚀 ~ apiClient ~ response:", response);
+
+  console.log(" API Client - Response status:", response.status);
 
   // If 401 Unauthorized, try to refresh and retry once
   if (response.status === 401 && accessToken) {
-    console.log("Received 401, attempting token refresh...");
+    console.log(" Received 401, attempting token refresh...");
 
     const refreshSuccess = await refreshAccessToken();
     if (refreshSuccess) {
@@ -164,15 +178,16 @@ export const apiClient = async (
       if (newAccessToken) {
         headers.set("Authorization", `Bearer ${newAccessToken}`);
 
-        console.log("Retrying request with new token...");
+        console.log(" Retrying request with new token...");
         response = await fetch(url, {
           ...options,
           headers,
         });
+        console.log(" Retry response status:", response.status);
       }
     } else {
       // Refresh failed, token is invalid
-      console.error("Token refresh failed, user needs to re-authenticate");
+      console.error(" Token refresh failed, user needs to re-authenticate");
       throw new Error("Authentication failed. Please login again.");
     }
   }
@@ -187,6 +202,7 @@ export const apiRequest = async <T = any>(
 ): Promise<{ success: boolean; data?: T; error?: any }> => {
   try {
     const response = await apiClient(endpoint, options);
+    console.log("🚀 ~ apiRequest ~ response:", response);
     const data = await response.json();
 
     if (!response.ok) {

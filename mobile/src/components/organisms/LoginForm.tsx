@@ -121,6 +121,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               autoComplete="email"
               textContentType="emailAddress"
               testID={`${testID}-email`}
+              placeholder="email@example.com"
             />
           )}
         </Field>
@@ -144,6 +145,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               onBlur={() => field.handleBlur()}
               error={field.state.meta.errors[0]?.toString()}
               testID={`${testID}-password`}
+              placeholder="********"
             />
           )}
         </Field>

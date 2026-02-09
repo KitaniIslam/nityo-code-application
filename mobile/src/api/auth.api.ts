@@ -1,14 +1,14 @@
 import {
   ApiResponse,
+  AuthResponse,
   LoginRequest,
   SignupRequest,
-  ResetPasswordRequest,
   UpdatePasswordRequest,
-  AuthResponse,
 } from "../types/auth";
+import { API_URL } from "../utils/consts";
 
 // API base URL - configure this based on your environment
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000/api";
+const API_BASE_URL = `${API_URL}/api`;
 
 // Custom error class for API errors
 class ApiError extends Error {
