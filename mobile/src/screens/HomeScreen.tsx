@@ -12,11 +12,14 @@ export const HomeScreen: React.FC = () => {
   const { colors, spacing } = useTheme();
   const { user, accessToken, logout } = useAuth();
   const [profileData, setProfileData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleLogout = async () => {
+    setIsSigningOut(true);
     await logout();
+    setIsSigningOut(false);
   };
 
   const fetchProfile = async () => {
@@ -136,8 +139,9 @@ export const HomeScreen: React.FC = () => {
             onPress={handleLogout}
             variant="primary"
             size="lg"
-            style={{ width: "100%" }}
+            style={{ width: "100%", backgroundColor: colors.error }}
             testID="home-logout"
+            loading={isSigningOut}
           >
             Sign Out
           </Button>
